@@ -27,8 +27,13 @@ body.dark-mode {
     --btn-text-active: #2d3436;
     /* Dark Icon for White Button */
     --text-sec: #b2bec3;
+    background-color: #121212;
     content-visibility: auto;
     /* Fix repaint issues */
+}
+
+body.dark-mode #app-background {
+    background-color: #121212;
 }
 
 * {
@@ -133,7 +138,7 @@ mix-blend-mode: difference;
     background: #eee;
     background-size: cover;
     background-position: center;
-    transition: background-image 1s ease;
+    transition: background-image 1s ease, background-color 1s ease;
 }
 
 .bg-overlay {
@@ -504,6 +509,10 @@ body.dark-mode .chip:hover {
 
 /* Mobile Responsive */
 @media (max-width: 900px) {
+    #cursor, #cursor-blur {
+        display: none;
+    }
+
     .app-layout {
         flex-direction: column;
         padding: 10px;

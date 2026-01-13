@@ -51,6 +51,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (localStorage.getItem('theme') === 'dark') {
             document.body.classList.add('dark-mode');
             themeIcon.setAttribute('name', 'sunny-outline');
+            updateMetaThemeColor(true);
+        } else {
+            updateMetaThemeColor(false);
         }
 
         themeBtn.addEventListener('click', (e) => {
@@ -59,7 +62,15 @@ document.addEventListener('DOMContentLoaded', () => {
             const isDark = document.body.classList.contains('dark-mode');
             themeIcon.setAttribute('name', isDark ? 'sunny-outline' : 'moon-outline');
             localStorage.setItem('theme', isDark ? 'dark' : 'light');
+            updateMetaThemeColor(isDark);
         });
+    }
+
+    function updateMetaThemeColor(isDark) {
+        const metaThemeColor = document.querySelector('meta[name="theme-color"]');
+        if (metaThemeColor) {
+            metaThemeColor.setAttribute('content', isDark ? '#121212' : '#f0f2f5');
+        }
     }
 
     // --- Hero Logic ---
