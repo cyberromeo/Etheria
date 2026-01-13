@@ -1,35 +1,40 @@
 :root {
     --font-main: 'Plus Jakarta Sans', sans-serif;
-    --glass-bg: rgba(255, 255, 255, 0.65);
-    --glass-border: rgba(255, 255, 255, 0.8);
-    --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.05);
+    --glass-bg: rgba(255, 255, 255, 0.7);
+    --glass-border: rgba(255, 255, 255, 0.6);
+    --glass-shadow:
+        0 4px 6px -1px rgba(0, 0, 0, 0.1),
+        0 2px 4px -1px rgba(0, 0, 0, 0.06),
+        inset 0 1px 0 rgba(255, 255, 255, 0.4);
     --overlay-bg: rgba(255, 255, 255, 0.3);
     --modal-bg: rgba(255, 255, 255, 0.95);
     --accent: #2d3436;
-    --text-main: #2d3436;
+    --text-main: #1a1a1a;
     --text-sec: #636e72;
-    --radius-lg: 32px;
-    --radius-md: 20px;
+    --radius-lg: 24px;
+    --radius-md: 16px;
     --radius-sm: 12px;
     --btn-text-active: #ffffff;
+    --ease-snappy: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 body.dark-mode {
-    --glass-bg: rgba(0, 0, 0, 0.6);
-    --overlay-bg: rgba(0, 0, 0, 0.7);
-    --modal-bg: #1e1e1e;
+    --glass-bg: rgba(20, 20, 20, 0.65);
+    --overlay-bg: rgba(0, 0, 0, 0.8);
+    --modal-bg: #1a1a1a;
     --glass-border: rgba(255, 255, 255, 0.08);
-    /* Subtle white border for dark glass */
-    --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    --glass-shadow:
+        0 8px 32px rgba(0, 0, 0, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
     --accent: #ffffff;
     /* White accent for dark mode */
     --text-main: #ecf0f1;
     --btn-text-active: #2d3436;
     /* Dark Icon for White Button */
     --text-sec: #b2bec3;
-    background-color: #121212;
     content-visibility: auto;
     /* Fix repaint issues */
+    background-color: #121212;
 }
 
 body.dark-mode #app-background {
@@ -63,6 +68,8 @@ body {
     pointer-events: none;
     z-index: 999999;
     transform: translate(-50%, -50%);
+    mix-blend-mode: difference;
+    transition: transform 0.15s var(--ease-snappy), border-color 0.3s;
 }
 
 .card-download-btn {
@@ -97,10 +104,7 @@ body {
     transform: translateY(0);
 }
 
-transition: transform 0.15s ease-out,
-border-color 0.3s;
-mix-blend-mode: difference;
-}
+/* Cleaned up orphaned block */
 
 #cursor::after {
     content: '';
@@ -138,7 +142,7 @@ mix-blend-mode: difference;
     background: #eee;
     background-size: cover;
     background-position: center;
-    transition: background-image 1s ease, background-color 1s ease;
+    transition: background-image 1s ease;
 }
 
 .bg-overlay {
@@ -198,14 +202,38 @@ mix-blend-mode: difference;
     color: var(--text-sec);
     text-decoration: none;
     font-size: 1.5rem;
-    transition: 0.3s;
+    position: relative;
+    transition: 0.3s var(--ease-snappy);
+    z-index: 1;
+}
+
+/* Sidebar Hover Glow (Desktop) */
+@media (min-width: 901px) {
+    .nav-links li a::after {
+        content: '';
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        background: var(--text-main);
+        border-radius: 50%;
+        z-index: -1;
+        opacity: 0;
+        transform: scale(0.5);
+        transition: 0.3s var(--ease-snappy);
+    }
+
+    .nav-links li a:hover::after {
+        opacity: 0.1;
+        transform: scale(1.4);
+    }
 }
 
 .nav-links li.active a,
 .nav-links li a:hover {
     background: var(--text-main);
     color: var(--btn-text-active);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+    transform: scale(1.1);
 }
 
 .user-profile img {
@@ -240,10 +268,12 @@ mix-blend-mode: difference;
 .glass-panel {
     background: var(--glass-bg);
     border: 1px solid var(--glass-border);
-    backdrop-filter: blur(10px);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
     box-shadow: var(--glass-shadow);
     border-radius: var(--radius-lg);
     padding: 30px;
+    transition: transform 0.3s var(--ease-snappy), box-shadow 0.3s var(--ease-snappy);
 }
 
 .bento-featured {
@@ -504,29 +534,65 @@ body.dark-mode .chip:hover {
 }
 
 .gallery-item:hover img {
-    transform: scale(1.05);
+    transform: scale(1.03);
+}
+
+.gallery-item:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+    z-index: 2;
 }
 
 /* Mobile Responsive */
 @media (max-width: 900px) {
-    #cursor, #cursor-blur {
-        display: none;
+
+    #cursor,
+    #cursor-blur {
+        display: none !important;
     }
 
     .app-layout {
         flex-direction: column;
-        padding: 10px;
+        padding: 10px 10px 90px 10px;
+        /* Bottom padding for Fixed Nav */
     }
 
+    /* Fixed Bottom Navigation */
     .sidebar {
-        width: 100%;
-        height: 60px;
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 90%;
+        max-width: 400px;
+        height: 70px;
         flex-direction: row;
-        padding: 0 20px;
+        padding: 0 25px;
+        z-index: 5000;
+        border-radius: 50px;
+        background: var(--glass-bg);
+        border: 1px solid var(--glass-border);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+    }
+
+    .sidebar .logo {
+        display: none;
+        /* Hide Logo in Bottom Nav to save space */
     }
 
     .nav-links {
         flex-direction: row;
+        width: 100%;
+        justify-content: space-between;
+        gap: 0;
+    }
+
+    .nav-links li a {
+        width: 45px;
+        height: 45px;
+        font-size: 1.3rem;
     }
 
     .hero-bento {
@@ -666,7 +732,9 @@ body.dark-mode .chip:hover {
     transition: 0.2s;
 }
 
-transform: rotate(90deg);
+.close-lightbox:hover {
+    transform: rotate(90deg);
+    background: rgba(255, 255, 255, 0.2);
 }
 
 /* Premium Download Button */
@@ -955,6 +1023,7 @@ transform: rotate(90deg);
 .about-text-content h2 {
     font-size: 1.8rem;
     background: linear-gradient(45deg, var(--text-main), var(--accent));
+    background-clip: text;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     margin-bottom: 20px;
@@ -1033,4 +1102,31 @@ transform: rotate(90deg);
     color: var(--accent);
     background: rgba(0, 0, 0, 0.05);
     transform: rotate(90deg);
+}
+
+/* Loading Sentinel & Spinner */
+#loading-sentinel {
+    width: 100%;
+    padding: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    opacity: 0;
+    transition: opacity 0.3s;
+    min-height: 80px;
+}
+
+#loading-sentinel.active {
+    opacity: 1;
+}
+
+.loader {
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgba(255, 255, 255, 0.1);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    backdrop-filter: blur(5px);
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
 }
