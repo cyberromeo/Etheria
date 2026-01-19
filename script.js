@@ -117,7 +117,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (tag === currentTag && btn.classList.contains('active')) return;
 
-            console.log('Tag clicked:', tag); // Debugging
             clearGallery(); // Use helper
             currentTag = tag;
 
