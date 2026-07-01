@@ -65,33 +65,34 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Hero Logic ---
     async function fetchHero() {
         try {
-            // Priority: Landscape Waifu
-            let res = await fetch('https://api.waifu.im/search?included_tags=waifu&height=>=1080&orientation=landscape');
+            // Priority: Landscape Waifu from NekosAPI
+            let res = await fetch('https://api.nekosapi.com/v4/images/random?limit=1&rating=safe&height=>=1080&orientation=landscape');
             let data = await res.json();
 
-            // Fallback: Generic if explicit landscape fails
-            if (!data.images || data.images.length === 0) {
-                res = await fetch('https://api.waifu.im/search?included_tags=waifu');
+            // Fallback: Any safe image if landscape fails
+            if (!data || data.length === 0) {
+                res = await fetch('https://api.nekosapi.com/v4/images/random?limit=1&rating=safe');
                 data = await res.json();
             }
 
-            if (data.images && data.images.length > 0) {
-                const imgData = data.images[0];
+            if (data && data.length > 0) {
+                const imgData = data[0];
                 if (heroCard) heroCard.style.backgroundImage = `url(${imgData.url})`;
                 if (appBg) appBg.style.backgroundImage = `url(${imgData.url})`;
 
-                // Dynamic Color (Simulated)
-                if (imgData.dominant_color) {
-                    document.documentElement.style.setProperty('--accent', imgData.dominant_color);
-                    document.getElementById('cursor').style.background = imgData.dominant_color;
-                    if (heroTitle) heroTitle.style.textShadow = `0 0 20px ${imgData.dominant_color}`;
+                // Dynamic Color
+                if (imgData.color_dominant) {
+                    const color = `rgb(${imgData.color_dominant.join(',')})`;
+                    document.documentElement.style.setProperty('--accent', color);
+                    document.getElementById('cursor').style.background = color;
+                    if (heroTitle) heroTitle.style.textShadow = `0 0 20px ${color}`;
                 }
             }
         } catch (e) {
             console.warn("Hero fetch error, using backup", e);
             // Ultimate Backup
-            if (heroCard) heroCard.style.backgroundImage = `url('https://cdn.waifu.im/7349.jpg')`;
-            if (appBg) appBg.style.backgroundImage = `url('https://cdn.waifu.im/7349.jpg')`;
+            if (heroCard) heroCard.style.backgroundImage = `url('https://cdn.nekos.life/waifu/5df7f640-7912-48f3-94fb-041de83cc74f.jpg')`;
+            if (appBg) appBg.style.backgroundImage = `url('https://cdn.nekos.life/waifu/5df7f640-7912-48f3-94fb-041de83cc74f.jpg')`;
         }
     }
 
@@ -170,23 +171,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-
-
-    // if (searchInput) {
-    //     searchInput.addEventListener('keypress', (e) => {
-    //         if (e.key === 'Enter') {
-    //             const query = searchInput.value.trim();
-    //             if (query) {
-    //                 clearGallery(); // CLEAN RESET
-    //                 currentTag = query;
-    //                 fetchImages(query);
-    //                 searchModal.classList.add('hidden');
-    //                 // Keep Search Tab active as we are viewing results
-    //             }
-    //         }
-    //     });
-    // }
-
     async function fetchImages(query = currentTag) {
         if (isLoading) return;
         isLoading = true;
@@ -238,51 +222,57 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.warn("V4 Failed:", e.message);
             }
 
-            // Layer 2: Waifu.im Fallback
+            // Layer 2: NekosAPI without tag filter (random images)
             if (!found) {
-                console.log("Attempting Layer 2: Waifu.im");
+                console.log("Attempting Layer 2: NekosAPI (no tag filter)");
                 try {
-                    let wTag = query;
-                    if (query === 'all') wTag = 'waifu';
-
-                    const res = await fetch(`https://api.waifu.im/search?included_tags=${wTag}&limit=${BATCH_SIZE}`);
+                    const res = await fetch(`https://api.nekosapi.com/v4/images/random?limit=${BATCH_SIZE}&rating=safe`);
                     const json = await res.json();
 
-                    if (json.images && json.images.length > 0) {
-                        images = json.images.map(item => ({
+                    if (Array.isArray(json) && json.length > 0) {
+                        images = json.map(item => ({
                             url: item.url,
-                            artist: item.artist ? item.artist.name : 'Unknown',
-                            source: item.source || '#',
-                            tags: item.tags ? item.tags.map(t => t.name) : [],
-                            width: item.width,
-                            height: item.height,
-                            color: item.dominant_color || '#ffffff'
+                            artist: item.artist_name || 'Unknown',
+                            source: item.source_url || '#',
+                            tags: item.tags || [],
+                            width: 0,
+                            height: 0,
+                            color: item.color_dominant ? `rgb(${item.color_dominant.join(',')})` : '#ffffff'
                         }));
                         found = true;
-                        console.log(`Waifu.im Success: ${images.length} images`);
+                        console.log(`Layer 2 Success: ${images.length} images`);
                     } else {
-                        throw new Error("No results on Waifu.im");
+                        throw new Error("No results on Layer 2");
                     }
-
                 } catch (e2) {
-                    console.warn("Waifu.im Failed:", e2.message);
+                    console.warn("Layer 2 Failed:", e2.message);
                 }
             }
 
-            // Layer 3: Ultimate Fallback (Random Waifu)
+            // Layer 3: nekos.life fallback (single images)
             if (!found && images.length === 0) {
-                console.log("Triggering Ultimate Fallback");
-                const res = await fetch(`https://api.waifu.im/search?included_tags=waifu&limit=${BATCH_SIZE}`);
-                const json = await res.json();
-                images = json.images.map(item => ({
-                    url: item.url,
-                    artist: item.artist ? item.artist.name : 'Unknown',
-                    source: item.source || '#',
-                    tags: ['waifu'],
-                    width: item.width,
-                    height: item.height,
-                    color: item.dominant_color || '#ffffff'
-                }));
+                console.log("Triggering Ultimate Fallback: nekos.life");
+                try {
+                    const categories = ['waifu', 'neko', 'megumin'];
+                    for (const cat of categories) {
+                        const res = await fetch(`https://nekos.life/api/v2/img/${cat}`);
+                        const json = await res.json();
+                        if (json.url) {
+                            images.push({
+                                url: json.url,
+                                artist: 'Unknown',
+                                source: '#',
+                                tags: [cat],
+                                width: 0,
+                                height: 0,
+                                color: '#ffffff'
+                            });
+                        }
+                        if (images.length >= BATCH_SIZE) break;
+                    }
+                } catch (e3) {
+                    console.warn("Layer 3 Failed:", e3.message);
+                }
             }
 
             await renderImagesSequential(images);
@@ -404,8 +394,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-
-
     async function renderImagesSequential(images) {
         if (!images || !galleryGrid) return;
         if (images.length === 0) return;
@@ -483,7 +471,6 @@ document.addEventListener('DOMContentLoaded', () => {
             sourceEl.innerText = imgData.source ? 'Open Source' : 'No Source';
         }
 
-        // Tags
         // Tags
         if (tagsContainer) {
             tagsContainer.innerHTML = '';
