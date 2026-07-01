@@ -65,28 +65,33 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Hero Logic ---
     async function fetchHero() {
         try {
-            // Priority: Landscape Waifu from NekosAPI
-            let res = await fetch('https://api.nekosapi.com/v4/images/random?limit=1&rating=safe&height=>=1080&orientation=landscape');
+            // Priority: Safebooru landscape
+            let res = await fetch('https://safebooru.org/index.php?page=dapi&s=post&q=index&json=1&tags=1girl+landscape&limit=1');
             let data = await res.json();
 
-            // Fallback: Any safe image if landscape fails
+            // Fallback: Any safe image
             if (!data || data.length === 0) {
-                res = await fetch('https://api.nekosapi.com/v4/images/random?limit=1&rating=safe');
+                res = await fetch('https://safebooru.org/index.php?page=dapi&s=post&q=index&json=1&tags=1girl&limit=1');
                 data = await res.json();
             }
 
             if (data && data.length > 0) {
                 const imgData = data[0];
-                if (heroCard) heroCard.style.backgroundImage = `url(${imgData.url})`;
-                if (appBg) appBg.style.backgroundImage = `url(${imgData.url})`;
+                const imgUrl = imgData.file_url || imgData.sample_url;
+                if (heroCard) heroCard.style.backgroundImage = `url(${imgUrl})`;
+                if (appBg) appBg.style.backgroundImage = `url(${imgUrl})`;
 
-                // Dynamic Color
-                if (imgData.color_dominant) {
-                    const color = `rgb(${imgData.color_dominant.join(',')})`;
-                    document.documentElement.style.setProperty('--accent', color);
-                    document.getElementById('cursor').style.background = color;
-                    if (heroTitle) heroTitle.style.textShadow = `0 0 20px ${color}`;
-                }
+                // Set accent color based on tags
+                const tags = imgData.tags || '';
+                let accentColor = '#e74c3c'; // default red
+                if (tags.includes('blue')) accentColor = '#3498db';
+                else if (tags.includes('green')) accentColor = '#2ecc71';
+                else if (tags.includes('pink')) accentColor = '#e91e63';
+                else if (tags.includes('purple')) accentColor = '#9b59b6';
+
+                document.documentElement.style.setProperty('--accent', accentColor);
+                document.getElementById('cursor').style.background = accentColor;
+                if (heroTitle) heroTitle.style.textShadow = `0 0 20px ${accentColor}`;
             }
         } catch (e) {
             console.warn("Hero fetch error, using backup", e);
@@ -182,70 +187,84 @@ document.addEventListener('DOMContentLoaded', () => {
         query = query.toLowerCase();
         console.log(`Fetching images for: ${query}`);
 
+        // Map user tags to booru tags
+        const tagMap = {
+            'waifu': '1girl',
+            'maid': 'maid',
+            'uniform': 'uniform',
+            'marin-kitagawa': '1girl',
+            'mori-calliope': '1girl',
+            'ganyu': '1girl',
+            'hutao': '1girl',
+            'neko': 'cat_ears',
+            'kitsune': 'fox_ears',
+            'oppai': '1girl',
+            'selfies': 'selfie',
+            'raiden-shogun': '1girl'
+        };
+        const booruTag = tagMap[query] || '1girl';
+
         try {
             let images = [];
             let found = false;
 
-            // Layer 1: NekosAPI V4 (Tag Search)
+            // Layer 1: Safebooru (High quality, safe content)
             try {
-                let endpoint = `https://api.nekosapi.com/v4/images/random?limit=${BATCH_SIZE}&rating=safe`;
-
-                // If specifically searching a tag (not default view)
-                if (query !== 'waifu' && query !== 'all') {
-                    endpoint += `&tags=${encodeURIComponent(query)}`;
-                }
-
-                console.log(`Calling V4: ${endpoint}`);
+                const endpoint = `https://safebooru.org/index.php?page=dapi&s=post&q=index&json=1&tags=${booruTag}+sort:score&limit=${BATCH_SIZE}`;
+                console.log(`Calling Safebooru: ${endpoint}`);
                 const res = await fetch(endpoint);
 
                 if (res.ok) {
                     const json = await res.json();
                     if (Array.isArray(json) && json.length > 0) {
                         images = json.map(item => ({
-                            url: item.url,
-                            artist: item.artist_name || 'Unknown',
-                            source: item.source_url || '#',
-                            tags: item.tags || [],
-                            width: 0,
-                            height: 0,
-                            color: item.color_dominant ? `rgb(${item.color_dominant.join(',')})` : '#ffffff'
+                            url: item.file_url || item.sample_url,
+                            artist: item.owner || 'Unknown',
+                            source: item.source || '#',
+                            tags: item.tags ? item.tags.split(' ') : [],
+                            width: item.width || 0,
+                            height: item.height || 0,
+                            color: '#ffffff'
                         }));
                         found = true;
-                        console.log(`V4 Success: ${images.length} images`);
+                        console.log(`Safebooru Success: ${images.length} images`);
                     } else {
-                        console.warn("V4 returned empty array");
+                        console.warn("Safebooru returned empty array");
                     }
                 } else {
-                    console.warn(`V4 Error Status: ${res.status}`);
+                    console.warn(`Safebooru Error Status: ${res.status}`);
                 }
             } catch (e) {
-                console.warn("V4 Failed:", e.message);
+                console.warn("Safebooru Failed:", e.message);
             }
 
-            // Layer 2: NekosAPI without tag filter (random images)
+            // Layer 2: Danbooru (High quality fallback)
             if (!found) {
-                console.log("Attempting Layer 2: NekosAPI (no tag filter)");
+                console.log("Attempting Layer 2: Danbooru");
                 try {
-                    const res = await fetch(`https://api.nekosapi.com/v4/images/random?limit=${BATCH_SIZE}&rating=safe`);
-                    const json = await res.json();
+                    const endpoint = `https://danbooru.donmai.us/posts.json?tags=${booruTag}+rating:general&limit=${BATCH_SIZE}`;
+                    const res = await fetch(endpoint);
 
-                    if (Array.isArray(json) && json.length > 0) {
-                        images = json.map(item => ({
-                            url: item.url,
-                            artist: item.artist_name || 'Unknown',
-                            source: item.source_url || '#',
-                            tags: item.tags || [],
-                            width: 0,
-                            height: 0,
-                            color: item.color_dominant ? `rgb(${item.color_dominant.join(',')})` : '#ffffff'
-                        }));
-                        found = true;
-                        console.log(`Layer 2 Success: ${images.length} images`);
-                    } else {
-                        throw new Error("No results on Layer 2");
+                    if (res.ok) {
+                        const json = await res.json();
+                        if (Array.isArray(json) && json.length > 0) {
+                            images = json.filter(item => item.file_url).map(item => ({
+                                url: item.file_url,
+                                artist: item.uploader_name || 'Unknown',
+                                source: item.source || '#',
+                                tags: item.tag_string ? item.tag_string.split(' ') : [],
+                                width: item.image_width || 0,
+                                height: item.image_height || 0,
+                                color: '#ffffff'
+                            }));
+                            found = true;
+                            console.log(`Danbooru Success: ${images.length} images`);
+                        } else {
+                            throw new Error("No results on Danbooru");
+                        }
                     }
                 } catch (e2) {
-                    console.warn("Layer 2 Failed:", e2.message);
+                    console.warn("Danbooru Failed:", e2.message);
                 }
             }
 
@@ -348,7 +367,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const item = document.createElement('div');
             item.className = 'gallery-item';
-            item.onclick = () => openLightbox(imgData); // Move click to container
+            item.onclick = () => openLightbox(imgData);
             item.style.backgroundColor = 'rgba(255,255,255,0.05)';
 
             const img = document.createElement('img');
@@ -362,7 +381,7 @@ document.addEventListener('DOMContentLoaded', () => {
             dBtn.innerHTML = '<ion-icon name="download-outline"></ion-icon>';
             dBtn.title = "Download";
             dBtn.onclick = (e) => {
-                e.stopPropagation(); // Prevent Lightbox open
+                e.stopPropagation();
                 forceDownload(imgData.url);
             };
 
@@ -386,8 +405,6 @@ document.addEventListener('DOMContentLoaded', () => {
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(blobUrl);
-
-            // Show simple toast or feedback? (Optional)
         } catch (err) {
             console.error("Download failed", err);
             window.open(url, '_blank');
@@ -420,11 +437,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (width < 900) targetCols = 2;
 
             if (masonryCols.length !== targetCols) {
-                // Reset cols to force rebuild in setupMasonry
                 masonryCols = [];
-                setupMasonry(); // will re-render allLoadedImages
+                setupMasonry();
             }
-        }, 100); // 100ms debounce
+        }, 100);
     });
 
     // Initialize Masonry on Load
@@ -489,21 +505,18 @@ document.addEventListener('DOMContentLoaded', () => {
         // Download Button Logic
         const downloadBtn = document.getElementById('lb-download');
         if (downloadBtn) {
-            // Remove old listeners (cloning is a quick hack, or just overwriting onclick)
             const newBtn = downloadBtn.cloneNode(true);
             downloadBtn.parentNode.replaceChild(newBtn, downloadBtn);
 
-            newBtn.href = imgData.url; // Fallback
+            newBtn.href = imgData.url;
             newBtn.onclick = async (e) => {
                 e.preventDefault();
-                // Add Loading Spinner / Text
                 newBtn.innerHTML = '<ion-icon name="sync-outline" class="spin"></ion-icon> Downloading...';
                 newBtn.style.opacity = '0.8';
                 newBtn.style.pointerEvents = 'none';
 
                 await forceDownload(imgData.url);
 
-                // Restore Button
                 newBtn.innerHTML = '<ion-icon name="download-outline"></ion-icon> Download';
                 newBtn.style.opacity = '1';
                 newBtn.style.pointerEvents = 'auto';
@@ -527,7 +540,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (aboutBtn) {
         aboutBtn.addEventListener('click', (e) => {
             e.preventDefault();
-            // Reset active state on nav
             document.querySelectorAll('.nav-links li').forEach(li => li.classList.remove('active'));
             aboutBtn.classList.add('active');
 
@@ -539,7 +551,6 @@ document.addEventListener('DOMContentLoaded', () => {
         aboutModal.addEventListener('click', (e) => {
             if (e.target === aboutModal || e.target.classList.contains('about-backdrop') || e.target.closest('.close-about')) {
                 aboutModal.classList.add('hidden');
-                // Revert active state to home
                 document.getElementById('nav-home').classList.add('active');
                 aboutBtn.classList.remove('active');
             }
